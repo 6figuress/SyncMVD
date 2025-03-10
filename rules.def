@@ -5,6 +5,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     export PATH=/opt/conda/bin:$PATH
     export CUDA_HOME=/usr/local/cuda
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+    export CONDA_ENV_PATH=/opt/conda/envs/syncmvd
 
 %post
     # Avoid interactive prompts during package installation
@@ -43,17 +44,25 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
+    # Create activation script
+    cat >> /opt/conda/activate_env.sh << 'EOF'
+    #!/bin/bash
+    source /opt/conda/etc/profile.d/conda.sh
+    conda activate syncmvd
+    EOF
+    chmod +x /opt/conda/activate_env.sh
+
     # Clean up
     conda clean -afy
     pip cache purge
 
 %runscript
-    echo "Container was created with SyncMVD environment"
-    echo "The environment is 'syncmvd'"
-    echo "To use the container interactively, run it with: apptainer shell"
+    source /opt/conda/activate_env.sh
+    cd /opt/SyncMVD
+    exec python run_experiment.py "$@"
 
 %labels
-    Author maintainer@example.com
+    Author Osmani Dion
     Version v1.0
 
 %help
@@ -61,5 +70,9 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     It includes CUDA 11.7, Python 3.8, PyTorch3D, and all required dependencies.
 
     Usage:
-    - For interactive shell: apptainer shell <container_name>.sif
-    - The conda environment 'syncmvd' is pre-installed and configured
+    apptainer run --nv syncmvd.sif [arguments]
+
+    The container will automatically:
+    1. Activate the conda environment
+    2. Change to the SyncMVD directory
+    3. Run run_experiment.py with any provided arguments
