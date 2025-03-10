@@ -10,7 +10,6 @@ export CONDA_DEFAULT_ENV=syncmvd
 export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
 
 %files
-    # Copy local SyncMVD directory into the container
     ./ /opt/SyncMVD/
 
 %post
@@ -37,36 +36,33 @@ export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPAT
     conda create -n syncmvd python=3.8 -y
     conda activate syncmvd
 
-    # Install PyTorch with CUDA 11.7
-    pip install torch==2.0.0+cu117 torchvision==0.15.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
-
-    # Install specific versions that work together
-    pip install diffusers==0.31.0
-    pip install transformers==4.46.1
-    pip install huggingface-hub==0.26.2
-    pip install accelerate
+    # Install CuPy with conda
+    conda install -c conda-forge cupy cuda-version=11.7 -y
 
     # Install fvcore dependencies
     conda install -c fvcore -c iopath -c conda-forge fvcore -y
 
-    # Install requirements from the copied directory
+    # Remove cupy from requirements (since we installed it with conda)
     cd /opt/SyncMVD
-    pip install -v -r requirements.txt
+    sed -i '/cupy/d' requirements.txt
+
+    # Install remaining requirements
+    pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu117
+
+    # Install additional required packages
+    pip install diffusers==0.19.3 transformers==4.36.0 accelerate
 
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
-    # Verify IPython installation
-    python -c "import IPython; print('IPython version:', IPython.__version__)"
+    # Verify CuPy installation and CUDA availability
+    python -c "import cupy as cp; print('CuPy version:', cp.__version__); print('CUDA available:', cp.cuda.is_available()); print('CUDA runtime version:', cp.cuda.runtime.runtimeGetVersion())"
 
     # Create activation script
     cat >> /opt/conda/activate_env.sh << 'EOF'
     #!/bin/bash
-    # Source conda
     . /opt/conda/etc/profile.d/conda.sh
-    # Activate environment
     conda activate syncmvd
-    # Verify environment
     which python
     python --version
     python -c "import sys; print('PYTHONPATH:', sys.path)"
@@ -79,14 +75,11 @@ export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPAT
 
 %runscript
 #!/bin/bash
-# Source conda and activate environment
 . /opt/conda/etc/profile.d/conda.sh
 conda activate syncmvd
-# Print debug information
 echo "Python path: $(which python)"
 echo "Active conda env: $CONDA_DEFAULT_ENV"
 python -c "import sys; print('Python path:', sys.path)"
-# Run the experiment
 cd /opt/SyncMVD
 exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
 
