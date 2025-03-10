@@ -2,12 +2,16 @@ Bootstrap: docker
 From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 
 %environment
-    export PATH=/opt/conda/bin:$PATH
-    export CUDA_HOME=/usr/local/cuda
-    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-    export CONDA_PREFIX=/opt/conda
-    export CONDA_DEFAULT_ENV=syncmvd
-    export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
+export PATH=/opt/conda/bin:$PATH
+export CUDA_HOME=/usr/local/cuda
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+export CONDA_PREFIX=/opt/conda
+export CONDA_DEFAULT_ENV=syncmvd
+export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
+
+%files
+    # Copy local SyncMVD directory into the container
+    ./ /opt/SyncMVD/
 
 %post
     # Avoid interactive prompts during package installation
@@ -15,10 +19,10 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 
     # Install system dependencies
     apt-get update && apt-get install -y \
-        git \
-        wget \
-        bash \
-        && rm -rf /var/lib/apt/lists/*
+    git \
+    wget \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
 
     # Install Miniconda
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
@@ -44,12 +48,8 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     # Install fvcore dependencies
     conda install -c fvcore -c iopath -c conda-forge fvcore -y
 
-    # Clone SyncMVD repository
-    cd /opt
-    git clone https://github.com/LIU-Yuxin/SyncMVD.git
-    cd SyncMVD
-
-    # Install requirements with verbose output to verify installation
+    # Install requirements from the copied directory
+    cd /opt/SyncMVD
     pip install -v -r requirements.txt
 
     # Install PyTorch3D
@@ -60,16 +60,16 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 
     # Create activation script
     cat >> /opt/conda/activate_env.sh << 'EOF'
-#!/bin/bash
-# Source conda
-. /opt/conda/etc/profile.d/conda.sh
-# Activate environment
-conda activate syncmvd
-# Verify environment
-which python
-python --version
-python -c "import sys; print('PYTHONPATH:', sys.path)"
-EOF
+    #!/bin/bash
+    # Source conda
+    . /opt/conda/etc/profile.d/conda.sh
+    # Activate environment
+    conda activate syncmvd
+    # Verify environment
+    which python
+    python --version
+    python -c "import sys; print('PYTHONPATH:', sys.path)"
+    EOF
     chmod +x /opt/conda/activate_env.sh
 
     # Clean up
@@ -77,22 +77,22 @@ EOF
     pip cache purge
 
 %runscript
-    #!/bin/bash
-    # Source conda and activate environment
-    . /opt/conda/etc/profile.d/conda.sh
-    conda activate syncmvd
-    # Print debug information
-    echo "Python path: $(which python)"
-    echo "Active conda env: $CONDA_DEFAULT_ENV"
-    python -c "import sys; print('Python path:', sys.path)"
-    # Run the experiment
-    cd /opt/SyncMVD
-    exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
+#!/bin/bash
+# Source conda and activate environment
+. /opt/conda/etc/profile.d/conda.sh
+conda activate syncmvd
+# Print debug information
+echo "Python path: $(which python)"
+echo "Active conda env: $CONDA_DEFAULT_ENV"
+python -c "import sys; print('Python path:', sys.path)"
+# Run the experiment
+cd /opt/SyncMVD
+exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
 
 %labels
-    Author maintainer@example.com
-    Version v1.0
+Author Osmani Dion
+Version v1.0
 
 %help
-    This container provides an environment for running SyncMVD.
-    It includes CUDA 11.7, Python 3.8, PyTorch3D, and all required dependencies.
+This container provides an environment for running SyncMVD.
+It includes CUDA 11.7, Python 3.8, PyTorch3D, and all required dependencies.
