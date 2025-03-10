@@ -39,7 +39,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     # Install specific versions that work together
     pip install huggingface-hub==0.13.4
     pip install diffusers==0.14.0
-    pip install transformers==4.27.4
+    pip install transformers==4.26.0
     pip install accelerate==0.18.0
 
     # Install fvcore dependencies
