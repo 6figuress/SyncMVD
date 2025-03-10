@@ -15,17 +15,15 @@ from diffusers import DDPMScheduler, DDIMScheduler, UniPCMultistepScheduler
 from diffusers.models import AutoencoderKL, ControlNetModel, UNet2DConditionModel
 from diffusers.schedulers import KarrasDiffusionSchedulers
 from diffusers.image_processor import VaeImageProcessor
+from diffusers.utils.torch_utils import randn_tensor, is_compiled_module
 from diffusers.utils import (
 	BaseOutput, 
-	randn_tensor, 
 	numpy_to_pil,
 	pt_to_pil,
 	# make_image_grid,
 	is_accelerate_available,
 	is_accelerate_version,
-	is_compiled_module,
 	logging,
-	randn_tensor,
 	replace_example_docstring
 	)
 

@@ -41,8 +41,9 @@ export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPAT
     pip install torch==2.0.0+cu117 torchvision==0.15.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
 
     # Install specific versions that work together
-    pip install diffusers==0.19.3
-    pip install transformers==4.36.0
+    pip install diffusers==0.31.0
+    pip install transformers==4.46.1
+    pip install huggingface-hub==0.26.2
     pip install accelerate
 
     # Install fvcore dependencies
