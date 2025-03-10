@@ -37,10 +37,9 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     pip install torch==2.0.0+cu117 torchvision==0.15.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
 
     # Install specific versions that work together
-    pip install huggingface-hub==0.13.4
-    pip install diffusers==0.14.0
-    pip install transformers==4.26.0
-    pip install accelerate==0.18.0
+    pip install diffusers==0.19.3
+    pip install transformers==4.36.0
+    pip install accelerate
 
     # Install fvcore dependencies
     conda install -c fvcore -c iopath -c conda-forge fvcore -y
