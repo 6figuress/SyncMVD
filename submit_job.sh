@@ -26,17 +26,17 @@ mkdir -p logs
 
 # Print Python and environment information
 echo "Testing container Python environment:"
-apptainer exec --nv syncmvd.sif bash -c "source /opt/conda/activate_env.sh && which python && python --version && echo PYTHONPATH=\$PYTHONPATH"
+apptainer exec --nv image.sif bash -c "source /opt/conda/activate_env.sh && which python && python --version && echo PYTHONPATH=\$PYTHONPATH"
 
 # Log the command being executed
-echo "Executing: apptainer run --nv syncmvd.sif --config $@"
+echo "Executing: apptainer run --nv image.sif --config $@"
 
 # Execute apptainer with explicit environment sourcing
 apptainer run --nv \
     --env PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages \
     --bind $(pwd)/data:/opt/SyncMVD/data \
     --bind $(pwd)/logs:/opt/SyncMVD/logs \
-    syncmvd.sif --config "$@"
+    image.sif --config "$@"
 
 # Print job completion information
 echo "Job completed at $(date)"

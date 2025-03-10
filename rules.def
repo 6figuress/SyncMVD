@@ -5,11 +5,9 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     export PATH=/opt/conda/bin:$PATH
     export CUDA_HOME=/usr/local/cuda
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-    # Add these environment variables
     export CONDA_PREFIX=/opt/conda
     export CONDA_DEFAULT_ENV=syncmvd
     export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
-
 
 %post
     # Avoid interactive prompts during package installation
@@ -19,6 +17,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     apt-get update && apt-get install -y \
         git \
         wget \
+        bash \
         && rm -rf /var/lib/apt/lists/*
 
     # Install Miniconda
@@ -34,6 +33,11 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     conda create -n syncmvd python=3.8 -y
     conda activate syncmvd
 
+    # Install specific versions of packages to ensure compatibility
+    pip install torch==2.0.0 torchvision==0.15.0
+    pip install huggingface-hub==0.16.4
+    pip install diffusers==0.19.3
+
     # Install fvcore dependencies
     conda install -c fvcore -c iopath -c conda-forge fvcore -y
 
@@ -42,22 +46,19 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     git clone https://github.com/LIU-Yuxin/SyncMVD.git
     cd SyncMVD
 
-    # Install requirements
+    # Install remaining requirements
     pip install -r requirements.txt
 
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
-    # Create activation script with full paths
+    # Create activation script with proper shell specification
     cat >> /opt/conda/activate_env.sh << 'EOF'
-    #!/bin/bash
-    # Source conda
-    source /opt/conda/etc/profile.d/conda.sh
-    # Activate environment
-    conda activate syncmvd
-    # Set Python path explicitly
-    export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
-    EOF
+#!/bin/bash
+source /opt/conda/etc/profile.d/conda.sh
+conda activate syncmvd
+export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
+EOF
     chmod +x /opt/conda/activate_env.sh
 
     # Clean up
@@ -65,23 +66,15 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     pip cache purge
 
 %runscript
-    # Source the activation script and run python with the full environment path
+    #!/bin/bash
     source /opt/conda/activate_env.sh
     cd /opt/SyncMVD
     exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
 
 %labels
-    Author Osmani Dion
+    Author maintainer@example.com
     Version v1.0
 
 %help
     This container provides an environment for running SyncMVD.
     It includes CUDA 11.7, Python 3.8, PyTorch3D, and all required dependencies.
-
-    Usage:
-    apptainer run --nv syncmvd.sif [arguments]
-
-    The container will automatically:
-    1. Activate the conda environment
-    2. Change to the SyncMVD directory
-    3. Run run_experiment.py with any provided arguments
