@@ -2,6 +2,6 @@ torch==2.0.1
 torchvision
 xformers==0.0.20
 xatlas
-cupy-cuda11x
+cupy-cuda117
 configargparse
 ipython
