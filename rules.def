@@ -50,18 +50,26 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     git clone https://github.com/LIU-Yuxin/SyncMVD.git
     cd SyncMVD
 
-    # Install remaining requirements (excluding already installed packages)
-    pip install accelerate einops imageio imageio-ffmpeg matplotlib numpy omegaconf pillow pytorch3d rich tqdm xatlas
+    # Install requirements with verbose output to verify installation
+    pip install -v -r requirements.txt
 
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
-    # Create activation script with proper shell specification
+    # Verify IPython installation
+    python -c "import IPython; print('IPython version:', IPython.__version__)"
+
+    # Create activation script
     cat >> /opt/conda/activate_env.sh << 'EOF'
 #!/bin/bash
-source /opt/conda/etc/profile.d/conda.sh
+# Source conda
+. /opt/conda/etc/profile.d/conda.sh
+# Activate environment
 conda activate syncmvd
-export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
+# Verify environment
+which python
+python --version
+python -c "import sys; print('PYTHONPATH:', sys.path)"
 EOF
     chmod +x /opt/conda/activate_env.sh
 
@@ -71,7 +79,14 @@ EOF
 
 %runscript
     #!/bin/bash
-    source /opt/conda/activate_env.sh
+    # Source conda and activate environment
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate syncmvd
+    # Print debug information
+    echo "Python path: $(which python)"
+    echo "Active conda env: $CONDA_DEFAULT_ENV"
+    python -c "import sys; print('Python path:', sys.path)"
+    # Run the experiment
     cd /opt/SyncMVD
     exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
 
