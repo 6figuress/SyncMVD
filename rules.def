@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export CUDA_HOME=/usr/local/cuda
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+%post
+    # Avoid interactive prompts during package installation
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Install system dependencies
+    apt-get update && apt-get install -y \
+        git \
+        wget \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install Miniconda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+    bash miniconda.sh -b -p /opt/conda
+    rm miniconda.sh
+
+    # Add conda to path
+    export PATH=/opt/conda/bin:$PATH
+
+    # Create and activate conda environment
+    . /opt/conda/etc/profile.d/conda.sh
+    conda create -n syncmvd python=3.8 -y
+    conda activate syncmvd
+
+    # Install fvcore dependencies
+    conda install -c fvcore -c iopath -c conda-forge fvcore -y
+
+    # Clone SyncMVD repository
+    cd /opt
+    git clone https://github.com/LIU-Yuxin/SyncMVD.git
+    cd SyncMVD
+
+    # Install requirements
+    pip install -r requirements.txt
+
+    # Install PyTorch3D
+    pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
+
+    # Clean up
+    conda clean -afy
+    pip cache purge
+
+%runscript
+    echo "Container was created with SyncMVD environment"
+    echo "The environment is 'syncmvd'"
+    echo "To use the container interactively, run it with: apptainer shell"
+
+%labels
+    Author maintainer@example.com
+    Version v1.0
+
+%help
+    This container provides an environment for running SyncMVD.
+    It includes CUDA 11.7, Python 3.8, PyTorch3D, and all required dependencies.
+
+    Usage:
+    - For interactive shell: apptainer shell <container_name>.sif
+    - The conda environment 'syncmvd' is pre-installed and configured
