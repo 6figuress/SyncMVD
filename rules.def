@@ -5,7 +5,11 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     export PATH=/opt/conda/bin:$PATH
     export CUDA_HOME=/usr/local/cuda
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-    export CONDA_ENV_PATH=/opt/conda/envs/syncmvd
+    # Add these environment variables
+    export CONDA_PREFIX=/opt/conda
+    export CONDA_DEFAULT_ENV=syncmvd
+    export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
+
 
 %post
     # Avoid interactive prompts during package installation
@@ -44,11 +48,15 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
-    # Create activation script
+    # Create activation script with full paths
     cat >> /opt/conda/activate_env.sh << 'EOF'
     #!/bin/bash
+    # Source conda
     source /opt/conda/etc/profile.d/conda.sh
+    # Activate environment
     conda activate syncmvd
+    # Set Python path explicitly
+    export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
     EOF
     chmod +x /opt/conda/activate_env.sh
 
@@ -57,9 +65,10 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     pip cache purge
 
 %runscript
+    # Source the activation script and run python with the full environment path
     source /opt/conda/activate_env.sh
     cd /opt/SyncMVD
-    exec python run_experiment.py "$@"
+    exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
 
 %labels
     Author Osmani Dion
