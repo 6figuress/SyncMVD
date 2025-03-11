@@ -1,12 +1,21 @@
-""" 
+"""
 Program to compute Voronoi diagram using JFA.
 
 @author yisiox
 @version September 2022
 """
 
-import cupy as cp
 from random import sample
+
+import cupy as cp
+
+# initialize CUDA device
+try:
+    device = cp.cuda.Device(0)
+    device.use()
+except Exception as e:
+    print(f"Error initializing CUDA device: {e}")
+    exit()
 
 # global variables
 x_dim = 512
@@ -15,13 +24,14 @@ noSeeds = 1024
 
 # diagram is represented as a 2d array where each element is
 # x coord of source * y_dim + y coord of source
-ping = cp.full((x_dim, y_dim), -1, dtype = int)
+ping = cp.full((x_dim, y_dim), -1, dtype=int)
 pong = None
 
 
+import time
 
 import torch
-import time
+
 
 def process_tensors(tensor1, tensor2):
     # start_time = time.time()
@@ -35,6 +45,7 @@ def process_tensors(tensor1, tensor2):
 
     return tensor1
 
+
 def test_performance():
     computation_times = []
 
@@ -45,24 +56,23 @@ def test_performance():
         process_tensors(tensor1, tensor2)
 
 
-
 def voronoi_solve(texture, mask):
-    '''
-        This is a warpper of the original cupy voronoi implementation
-        The texture color where mask value is 1 will propagate to its
-        neighbors.
-        args:
-            texture - A multi-channel tensor, (H, W, C)
-            mask - A single-channel tensor, (H, W)
-        return:
-            texture - Propagated tensor
-    '''
+    """
+    This is a warpper of the original cupy voronoi implementation
+    The texture color where mask value is 1 will propagate to its
+    neighbors.
+    args:
+        texture - A multi-channel tensor, (H, W, C)
+        mask - A single-channel tensor, (H, W)
+    return:
+        texture - Propagated tensor
+    """
     h, w, c = texture.shape
     # hwc_texture = texture.permute(1,2,0)
-    valid_pix_coord = torch.where(mask>0)
+    valid_pix_coord = torch.where(mask > 0)
 
-    indices = torch.arange(0, h*w).cuda().reshape(h, w)
-    idx_map = -1 * torch.ones((h,w), dtype=torch.int64).cuda()
+    indices = torch.arange(0, h * w).cuda().reshape(h, w)
+    idx_map = -1 * torch.ones((h, w), dtype=torch.int64).cuda()
     idx_map[valid_pix_coord] = indices[valid_pix_coord]
 
     ping = cp.asarray(idx_map)
@@ -70,10 +80,13 @@ def voronoi_solve(texture, mask):
     ping = JFAVoronoiDiagram(ping, pong)
 
     voronoi_map = torch.as_tensor(ping, device="cuda")
-    nc_voronoi_texture = torch.index_select(texture.reshape(h*w, c), 0, voronoi_map.reshape(h*w))
+    nc_voronoi_texture = torch.index_select(
+        texture.reshape(h * w, c), 0, voronoi_map.reshape(h * w)
+    )
     voronoi_texture = nc_voronoi_texture.reshape(h, w, c)
 
     return voronoi_texture
+
 
 def generateRandomSeeds(n):
     """
@@ -95,15 +108,14 @@ def generateRandomSeeds(n):
         ping[x, y] = x * y_dim + y
     pong = cp.copy(ping)
 
+
 displayKernel = cp.ElementwiseKernel(
-        "int64 x",
-        "int64 y",
-        f"y = (x < 0) ? x : x % 103",
-        "displayTransform")
+    "int64 x", "int64 y", "y = (x < 0) ? x : x % 103", "displayTransform"
+)
 
 
-
-voronoiKernel = cp.RawKernel(r"""
+voronoiKernel = cp.RawKernel(
+    r"""
     extern "C" __global__
     void voronoiPass(const long long step, const long long xDim, const long long yDim, const long long *ping, long long *pong) {
         long long idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -116,7 +128,7 @@ voronoiKernel = cp.RawKernel(r"""
                     long long dx = (step * dydx[i]) * yDim;
                     long long dy = step * dydx[j];
                     long long src = k + dx + dy;
-                    if (src < 0 || src >= xDim * yDim) 
+                    if (src < 0 || src >= xDim * yDim)
                         continue;
                     if (ping[src] == -1)
                         continue;
@@ -138,14 +150,18 @@ voronoiKernel = cp.RawKernel(r"""
             }
         }
     }
-    """, "voronoiPass")
+    """,
+    "voronoiPass",
+)
 
 
-'''
+"""
 
     y and x is actually w and h? (according to experiment result)
 
-'''
+"""
+
+
 def JFAVoronoiDiagram(ping, pong):
     # global ping, pong
     # compute initial step size
@@ -155,7 +171,9 @@ def JFAVoronoiDiagram(ping, pong):
     frame = 0
     # iterate while step size is greater than 0
     while step:
-        voronoiKernel((min(x_dim, 512),), (min(y_dim, 512),), (step, x_dim, y_dim, ping, pong))
+        voronoiKernel(
+            (min(x_dim, 512),), (min(y_dim, 512),), (step, x_dim, y_dim, ping, pong)
+        )
         # Ajusted the upper bound of the kernel dimension from 1024 to 512 to avoid CUDA OUT OF RESOURCE problem
         ping, pong = pong, ping
         frame += 1

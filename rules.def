@@ -4,7 +4,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 %environment
 export PATH=/opt/conda/bin:$PATH
 export CUDA_HOME=/usr/local/cuda
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH
 export CONDA_PREFIX=/opt/conda
 export CONDA_DEFAULT_ENV=syncmvd
 export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
@@ -13,6 +13,10 @@ export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPAT
     ./ /opt/SyncMVD/
 
 %post
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=/usr/local/cuda/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH
+
     # Avoid interactive prompts during package installation
     export DEBIAN_FRONTEND=noninteractive
 
@@ -55,8 +59,13 @@ export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPAT
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
-    # Verify CuPy installation and CUDA availability
-    python -c "import cupy as cp; print('CuPy version:', cp.__version__); print('CUDA available:', cp.cuda.is_available()); print('CUDA runtime version:', cp.cuda.runtime.runtimeGetVersion())"
+    # Verify CUDA installation
+    nvidia-smi
+    nvcc --version
+
+    # Test CUDA with a simple Python script
+    python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA version:', torch.version.cuda)"
+    python -c "import cupy as cp; cp.cuda.runtime.getDeviceCount()"
 
     # Create activation script
     cat >> /opt/conda/activate_env.sh << 'EOF'
