@@ -4,7 +4,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 %environment
     export PATH=/opt/conda/bin:$PATH
     export CUDA_HOME=/usr/local/cuda
-    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
     export CONDA_PREFIX=/opt/conda
     export CONDA_DEFAULT_ENV=syncmvd
     export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
@@ -22,6 +22,11 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     wget \
     bash \
     && rm -rf /var/lib/apt/lists/*
+
+    # Set CUDA environment variables for the build
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=/usr/local/cuda/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
     # Install Miniconda
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
@@ -46,6 +51,9 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     cd /opt/SyncMVD
     sed -i '/cupy/d' requirements.txt
 
+    # Set CUDA compute capability
+    export TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6"
+
     # Install remaining requirements
     pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu117
 
@@ -55,18 +63,11 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
-    # Test CUDA with a simple Python script
-    python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('CUDA version:', torch.version.cuda)"
-    python -c "import cupy as cp; cp.cuda.runtime.getDeviceCount()"
-
     # Create activation script
     cat >> /opt/conda/activate_env.sh << 'EOF'
     #!/bin/bash
     . /opt/conda/etc/profile.d/conda.sh
     conda activate syncmvd
-    which python
-    python --version
-    python -c "import sys; print('PYTHONPATH:', sys.path)"
     EOF
     chmod +x /opt/conda/activate_env.sh
 
@@ -78,9 +79,27 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     #!/bin/bash
     . /opt/conda/etc/profile.d/conda.sh
     conda activate syncmvd
-    echo "Python path: $(which python)"
-    echo "Active conda env: $CONDA_DEFAULT_ENV"
-    python -c "import sys; print('Python path:', sys.path)"
+
+    # Runtime CUDA verification
+    echo "=== Checking CUDA Setup ==="
+    python -c "
+import torch
+import cupy as cp
+print('PyTorch CUDA available:', torch.cuda.is_available())
+print('PyTorch CUDA version:', torch.version.cuda)
+print('CuPy CUDA available:', cp.cuda.is_available())
+print('CuPy CUDA runtime version:', cp.cuda.runtime.runtimeGetVersion())
+try:
+    device_count = cp.cuda.runtime.getDeviceCount()
+    print('Number of CUDA devices:', device_count)
+except Exception as e:
+    print('Error checking CUDA devices:', e)
+"
+    echo "===================="
+
+    # Clear CuPy cache
+    python -c "import cupy as cp; cp.clear_memo(); cp.get_default_memory_pool().free_all_blocks()"
+
     cd /opt/SyncMVD
     exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
 
@@ -91,3 +110,6 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 %help
     This container provides an environment for running SyncMVD.
     It includes CUDA 11.7, Python 3.8, PyTorch3D, and all required dependencies.
+
+    To run the container:
+    $ apptainer run --nv container.sif image-to-3d
