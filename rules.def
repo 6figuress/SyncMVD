@@ -8,6 +8,9 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     export CONDA_PREFIX=/opt/conda
     export CONDA_DEFAULT_ENV=syncmvd
     export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
+    # Add CuPy specific environment variables
+    export CUPY_CACHE_DIR=/tmp/cupy_cache
+    export CUPY_CUDA_COMPILE_OPTIONS="--generate-code=arch=compute_60,code=sm_60 --generate-code=arch=compute_70,code=sm_70 --generate-code=arch=compute_75,code=sm_75 --generate-code=arch=compute_80,code=sm_80"
 
 %files
     ./ /opt/SyncMVD/
@@ -21,12 +24,19 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     git \
     wget \
     bash \
+    nvidia-cuda-toolkit \
     && rm -rf /var/lib/apt/lists/*
 
     # Set CUDA environment variables for the build
     export CUDA_HOME=/usr/local/cuda
     export PATH=/usr/local/cuda/bin:$PATH
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+    export CUPY_CACHE_DIR=/tmp/cupy_cache
+    export CUPY_CUDA_COMPILE_OPTIONS="--generate-code=arch=compute_60,code=sm_60 --generate-code=arch=compute_70,code=sm_70 --generate-code=arch=compute_75,code=sm_75 --generate-code=arch=compute_80,code=sm_80"
+
+    # Create CuPy cache directory
+    mkdir -p /tmp/cupy_cache
+    chmod 777 /tmp/cupy_cache
 
     # Install Miniconda
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
@@ -47,12 +57,12 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     # Install fvcore dependencies
     conda install -c fvcore -c iopath -c conda-forge fvcore -y
 
-    # Remove cupy from requirements (since we installed it with conda)
+    # Remove cupy from requirements
     cd /opt/SyncMVD
     sed -i '/cupy/d' requirements.txt
 
     # Set CUDA compute capability
-    export TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6"
+    export TORCH_CUDA_ARCH_LIST="6.0;7.0;7.5;8.0"
 
     # Install remaining requirements
     pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu117
@@ -84,6 +94,10 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     . /opt/conda/etc/profile.d/conda.sh
     conda activate syncmvd
 
+    # Clear CuPy cache before running
+    rm -rf /tmp/cupy_cache/*
+    mkdir -p /tmp/cupy_cache
+
     # Runtime CUDA verification
     echo "=== Checking CUDA Setup ==="
     python -c "
@@ -96,13 +110,14 @@ print('CuPy CUDA runtime version:', cp.cuda.runtime.runtimeGetVersion())
 try:
     device_count = cp.cuda.runtime.getDeviceCount()
     print('Number of CUDA devices:', device_count)
+    for i in range(device_count):
+        device = cp.cuda.Device(i)
+        props = cp.cuda.runtime.getDeviceProperties(i)
+        print(f'Device {i}: {props.get("name", "Unknown")} (Compute Capability: {props.get("computeMajor")}.{props.get("computeMinor")})')
 except Exception as e:
     print('Error checking CUDA devices:', e)
 "
     echo "===================="
-
-    # Clear CuPy cache
-    python -c "import cupy as cp; cp.clear_memo(); cp.get_default_memory_pool().free_all_blocks()"
 
     cd /opt/SyncMVD
     exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
