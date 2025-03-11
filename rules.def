@@ -60,6 +60,10 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     # Install additional required packages
     pip install diffusers==0.19.3 transformers==4.36.0 accelerate
 
+    # Patch diffusers code to remove cached_download
+    DIFFUSERS_PATH="/opt/conda/envs/syncmvd/lib/python3.8/site-packages/diffusers/utils/dynamic_modules_utils.py"
+    sed -i 's/from huggingface_hub import HfFolder, cached_download, hf_hub_download, model_info/from huggingface_hub import HfFolder, hf_hub_download, model_info/g' "$DIFFUSERS_PATH"
+
     # Install PyTorch3D
     pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
 
