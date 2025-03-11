@@ -112,7 +112,9 @@ try:
     print('Number of CUDA devices:', device_count)
     for i in range(device_count):
         device = cp.cuda.Device(i)
+        print(device)
         props = cp.cuda.runtime.getDeviceProperties(i)
+        print(props)
         print(f'Device {i}: {props.get("name", "Unknown")} (Compute Capability: {props.get("computeMajor")}.{props.get("computeMinor")})')
 except Exception as e:
     print('Error checking CUDA devices:', e)
