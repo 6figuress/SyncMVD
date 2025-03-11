@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
+From: nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 
 %environment
     export PATH=/opt/conda/bin:$PATH
@@ -10,7 +10,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     export PYTHONPATH=/opt/conda/envs/syncmvd/lib/python3.8/site-packages:$PYTHONPATH
     # Add CuPy specific environment variables
     export CUPY_CACHE_DIR=/tmp/cupy_cache
-    export CUPY_CUDA_COMPILE_OPTIONS="--generate-code=arch=compute_60,code=sm_60 --generate-code=arch=compute_70,code=sm_70 --generate-code=arch=compute_75,code=sm_75 --generate-code=arch=compute_80,code=sm_80"
+    export CUPY_CUDA_COMPILE_OPTIONS="--generate-code=arch=compute_90,code=sm_90"
 
 %files
     ./ /opt/SyncMVD/
@@ -32,7 +32,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     export PATH=/usr/local/cuda/bin:$PATH
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
     export CUPY_CACHE_DIR=/tmp/cupy_cache
-    export CUPY_CUDA_COMPILE_OPTIONS="--generate-code=arch=compute_60,code=sm_60 --generate-code=arch=compute_70,code=sm_70 --generate-code=arch=compute_75,code=sm_75 --generate-code=arch=compute_80,code=sm_80"
+    export CUPY_CUDA_COMPILE_OPTIONS="--generate-code=arch=compute_90,code=sm_90"
 
     # Create CuPy cache directory
     mkdir -p /tmp/cupy_cache
@@ -52,7 +52,7 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     conda activate syncmvd
 
     # Install CuPy with conda
-    conda install -c conda-forge cupy cuda-version=11.7 -y
+    conda install -c conda-forge cupy cuda-version=11.8 -y
 
     # Install fvcore dependencies
     conda install -c fvcore -c iopath -c conda-forge fvcore -y
@@ -61,11 +61,11 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     cd /opt/SyncMVD
     sed -i '/cupy/d' requirements.txt
 
-    # Set CUDA compute capability
-    export TORCH_CUDA_ARCH_LIST="6.0;7.0;7.5;8.0"
+    # Set CUDA compute capability for PyTorch
+    export TORCH_CUDA_ARCH_LIST="9.0"
 
     # Install remaining requirements
-    pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu117
+    pip install -r requirements.txt
 
     # Install additional required packages
     pip install diffusers==0.19.3 transformers==4.36.0 accelerate
@@ -74,61 +74,6 @@ From: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
     DIFFUSERS_PATH="/opt/conda/envs/syncmvd/lib/python3.8/site-packages/diffusers/utils/dynamic_modules_utils.py"
     sed -i 's/from huggingface_hub import HfFolder, cached_download, hf_hub_download, model_info/from huggingface_hub import HfFolder, hf_hub_download, model_info/g' "$DIFFUSERS_PATH"
 
-    # Install PyTorch3D
-    pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html
-
-    # Create activation script
-    cat >> /opt/conda/activate_env.sh << 'EOF'
-    #!/bin/bash
-    . /opt/conda/etc/profile.d/conda.sh
-    conda activate syncmvd
-    EOF
-    chmod +x /opt/conda/activate_env.sh
-
-    # Clean up
-    conda clean -afy
-    pip cache purge
-
-%runscript
-    #!/bin/bash
-    . /opt/conda/etc/profile.d/conda.sh
-    conda activate syncmvd
-
-    # Clear CuPy cache before running
-    rm -rf /tmp/cupy_cache/*
-    mkdir -p /tmp/cupy_cache
-
-    # Runtime CUDA verification
-    echo "=== Checking CUDA Setup ==="
-    python -c "
-import torch
-import cupy as cp
-print('PyTorch CUDA available:', torch.cuda.is_available())
-print('PyTorch CUDA version:', torch.version.cuda)
-print('CuPy CUDA available:', cp.cuda.is_available())
-print('CuPy CUDA runtime version:', cp.cuda.runtime.runtimeGetVersion())
-try:
-    device_count = cp.cuda.runtime.getDeviceCount()
-    print('Number of CUDA devices:', device_count)
-    for i in range(device_count):
-        device = cp.cuda.Device(i)
-        props = cp.cuda.runtime.getDeviceProperties(i)
-        print(f'Device {i}: {props.get("name", "Unknown")} (Compute Capability: {props.get("computeMajor")}.{props.get("computeMinor")})')
-except Exception as e:
-    print('Error checking CUDA devices:', e)
-"
-    echo "===================="
-
-    cd /opt/SyncMVD
-    exec /opt/conda/envs/syncmvd/bin/python run_experiment.py "$@"
-
-%labels
-    Author Osmani Dion
-    Version v1.0
-
-%help
-    This container provides an environment for running SyncMVD.
-    It includes CUDA 11.7, Python 3.8, PyTorch3D, and all required dependencies.
-
-    To run the container:
-    $ apptainer run --nv container.sif image-to-3d
+    # Install PyTorch3D (using cu118 wheel if available, otherwise we'll need to build from source)
+    pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu118_pyt200/download.html || \
+    pip install "git+https://github.com/facebookresearch/pytorch3d.git"
